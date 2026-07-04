@@ -100,7 +100,7 @@ export async function getMigrations<T extends Record<string, any>>(
   const useNumberId = idStrategy === "number"
   const migratorOptions: MigratorOptions = { useNumberId, idStrategy }
 
-  const migrator = await resolveMigrator(config, getTables, logger)
+  const migrator = await resolveMigrator(config, getTables)
 
   const tableMetadata = migrationsConfig.skipIntrospect ? [] : await migrator.introspect()
 
@@ -251,7 +251,6 @@ export async function getMigrations<T extends Record<string, any>>(
 async function resolveMigrator<T extends Record<string, any>>(
   config: AdapterOptions<T>,
   getTables: (options: AdapterOptions<T>) => TablesSchema,
-  logger: ReturnType<typeof createLogger>,
 ): Promise<AdapterMigrator> {
   const db = config.database
 
@@ -261,11 +260,10 @@ async function resolveMigrator<T extends Record<string, any>>(
     if (instance.createMigrator) {
       return await instance.createMigrator()
     }
-    logger.error(
+    throw new Error(
       `[unadapter] adapter "${instance.id}" does not implement createMigrator. ` +
         `Use that adapter's native schema tooling, or pass a Kysely-compatible database to runMigrations().`,
     )
-    process.exit(1)
   }
 
   // Path 2: backwards-compatible Kysely autodetection (raw pool / dialect / { db, type } shapes).
@@ -273,12 +271,11 @@ async function resolveMigrator<T extends Record<string, any>>(
   const { createKyselyMigrator } = await import("../adapters/kysely/migrator.ts")
   const migrator = await createKyselyMigrator(config)
   if (!migrator) {
-    logger.error(
+    throw new Error(
       "[unadapter] no migrator could be resolved. Pass an AdapterInstance whose adapter " +
         "implements createMigrator, or a Kysely-compatible database (Kysely instance, Dialect, " +
         "better-sqlite3 Database, mysql2 pool, or pg Pool).",
     )
-    process.exit(1)
   }
   return migrator
 }

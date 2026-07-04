@@ -40,6 +40,7 @@
 - [Installation](#-installation)
 - [Available Adapters](#-available-adapters)
 - [Getting Started](#-getting-started)
+- [Generate](#-generate)
 - [Migrations](#-migrations)
 - [API Reference](#-api-reference)
 - [Contributing](#-contributing)
@@ -1062,6 +1063,56 @@ await (await getMigrations({ database: sumakAdapter(db, { type: "postgres" }), .
 ```
 
 </details>
+
+## 🧬 Generate
+
+`generate()` compiles a `TablesSchema` into schema output that a library author
+can expose from their own CLI, such as `npx my-lib generate`.
+
+This is different from `runMigrations()`: generation does not inspect or modify
+a live database. It treats the database as empty and emits a full schema string.
+Applying that output remains the consumer's responsibility.
+
+Current scope:
+
+| Format  | Status | Notes                                                          |
+| ------- | ------ | -------------------------------------------------------------- |
+| SQL     | ✅     | Emits SQL DDL through adapters that implement `createMigrator` |
+| Prisma  | ❌     | Use Prisma Migrate / `prisma db push` for now                  |
+| Drizzle | ❌     | Use Drizzle Kit for now                                        |
+
+```typescript
+import { generate } from "unadapter/generate"
+import { kyselyAdapter } from "unadapter/kysely"
+
+export async function generateSchema() {
+  const sql = await generate(
+    getTables,
+    {
+      database: kyselyAdapter(db, { type: "postgres" }),
+      advanced: {
+        database: {
+          // useNumberId: true,
+          // generateId: "uuid",
+        },
+      },
+    },
+    { format: "sql" },
+  )
+
+  process.stdout.write(`${sql}\n`)
+}
+```
+
+The target SQL dialect is taken from the adapter configuration, for example
+`kyselyAdapter(db, { type: "postgres" })`. `generate()` currently requires an
+adapter instance whose adapter implements `createMigrator()`; Kysely, Knex, and
+Sumak support this path. The adapter can be backed by a driverless object if the
+underlying query builder can compile SQL without executing it.
+
+Adapters without migrators, such as Prisma, Drizzle, MongoDB, and Memory, return
+an explicit unsupported error for SQL generation. Their native schema tools
+remain the right way to apply schema changes.
 
 ## 🛠️ Migrations
 

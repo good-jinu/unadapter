@@ -3,6 +3,7 @@ import type { AdapterOptions, TablesSchema } from "../../src/types/index.ts"
 import { Kysely, MysqlDialect, PostgresDialect, SqliteDialect } from "kysely"
 import { describe, expect, test } from "vitest"
 import { kyselyAdapter } from "../../src/adapters/kysely/kysely-adapter.ts"
+import { memoryAdapter } from "../../src/adapters/memory/memory-adapter.ts"
 import { generate } from "../../src/generate/index.ts"
 
 const tables: TablesSchema = {
@@ -51,6 +52,28 @@ function opts(
   return { database: adapterFor(type), advanced: { database: advancedDb } } as AdapterOptions
 }
 
+function adapterWithThrowingIntrospection() {
+  return () => ({
+    id: "throwing-introspection",
+    createMigrator: () => ({
+      introspect: async () => {
+        throw new Error("introspection should not run during generate")
+      },
+      createTable: async () => {},
+      addColumn: async () => {},
+      resolveType: () => "text",
+      matchType: () => true,
+      compileCreateTable: (table, idColumn, fields) => {
+        const columns = [
+          `"id" ${idColumn.type} primary key`,
+          ...Object.entries(fields).map(([name, column]) => `"${name}" ${column.type}`),
+        ]
+        return `create table "${table}" (${columns.join(", ")})`
+      },
+    }),
+  })
+}
+
 describe("generate() — offline SQL schema", () => {
   test("postgres: text PK, jsonb, timestamp default, FK, index", async () => {
     const sql = await generate(getTables, opts("postgres"), { format: "sql" })
@@ -97,5 +120,28 @@ describe("generate() — offline SQL schema", () => {
     await expect(
       generate(getTables, { advanced: { database: {} } } as AdapterOptions, { format: "sql" }),
     ).rejects.toThrow(/requires an adapter instance/)
+  })
+
+  test("does not call live introspection", async () => {
+    const sql = await generate(getTables, {
+      database: adapterWithThrowingIntrospection(),
+    } as AdapterOptions)
+
+    expect(sql).toMatch(/create table "user"/i)
+    expect(sql).toMatch(/create table "post"/i)
+  })
+
+  test("throws an actionable error for adapters without migrators", async () => {
+    await expect(
+      generate(getTables, {
+        database: memoryAdapter({ user: [], post: [] }),
+      } as AdapterOptions),
+    ).rejects.toThrow(/adapter "memory" does not implement createMigrator/)
+  })
+
+  test("throws an actionable error for unsupported formats", async () => {
+    await expect(
+      generate(getTables, opts("postgres"), { format: "prisma" as any }),
+    ).rejects.toThrow(/unsupported generate format "prisma"/)
   })
 })

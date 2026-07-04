@@ -22,8 +22,14 @@ export interface GenerateOptions {
 export async function generate<T extends Record<string, any>>(
   getTables: (options: AdapterOptions<T>) => TablesSchema,
   options: AdapterOptions<T>,
-  _generateOptions: GenerateOptions = {},
+  generateOptions: GenerateOptions = {},
 ): Promise<string> {
+  const format = (generateOptions as { format?: string }).format
+  if (format && format !== "sql") {
+    throw new Error(
+      `[unadapter] unsupported generate format "${format}". Only "sql" is currently supported.`,
+    )
+  }
   if (typeof options.database !== "function") {
     throw new Error(
       "[unadapter] generate() requires an adapter instance as options.database " +

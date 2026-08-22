@@ -29,6 +29,8 @@ describe("source schema generators", () => {
 
     expect(mysql).toContain('from "drizzle-orm/mysql-core"')
     expect(mysql).toMatch(/export const user = mysqlTable\("user"/)
+    expect(mysql).toContain('name: varchar("name", { length: 255 }).notNull()')
+    expect(mysql).toContain('index("user_name_idx").on(table.name)')
     expect(mysql).toContain('createdAt: datetime("createdAt").notNull().defaultNow()')
 
     expect(sqlite).toContain('from "drizzle-orm/sqlite-core"')

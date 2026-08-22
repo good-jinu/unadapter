@@ -270,7 +270,10 @@ function renderFieldBuilder(
 
   switch (field.type as FieldType) {
     case "string":
-      if (context.dialect === "mysql" && (field.unique || field.sortable || field.references)) {
+      if (
+        context.dialect === "mysql" &&
+        (field.unique || field.index || field.sortable || field.references)
+      ) {
         context.imports.add("varchar")
         return `varchar(${databaseName}, { length: ${field.references ? 36 : 255} })`
       }

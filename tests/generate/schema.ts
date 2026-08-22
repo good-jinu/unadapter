@@ -16,7 +16,7 @@ export const getTables = createTable<GenerateTestOptions>((options) => {
     user: {
       modelName: userModelName,
       fields: {
-        name: { type: "string", required: true },
+        name: { type: "string", required: true, index: true },
         email: { type: "string", required: true, unique: true, index: true },
         emailVerified: { type: "boolean", required: true, defaultValue: () => false },
         createdAt: { type: "date", required: true, defaultValue: () => new Date() },
